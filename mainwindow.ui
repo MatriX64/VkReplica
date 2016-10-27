@@ -37,12 +37,12 @@
       </property>
       <item>
        <property name="text">
-        <string>Moon</string>
+        <string>Parse</string>
        </property>
       </item>
       <item>
        <property name="text">
-        <string>Parse</string>
+        <string>Moon</string>
        </property>
       </item>
      </widget>

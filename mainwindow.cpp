@@ -87,6 +87,8 @@ void MainWindow::get_friends()
         ui->LIST->addItem(itr.key());
     }
     emit friends_loaded(true);
+    if (!token.isEmpty())
+        emit ui->SEND->clicked();
 }
 
 QByteArray MainWindow::GET(QUrl r)
@@ -227,7 +229,7 @@ QUrl MainWindow::parse_message()
         requestString = receivedMessage.split(" ");
         QString groupsNumber = requestString.at(1);
 
-        if ((groupsNumber.toInt() < 1) || (groupsNumber.toInt() >= 1000))
+        if ((groupsNumber.toInt() < 1) || (groupsNumber.toInt() > 6))
         {
             QUrl current("access_denied");
             return current;
@@ -281,7 +283,8 @@ QUrl MainWindow::parse_message()
             QUrlQuery queryWall;
             queryWall.addQueryItem("access_token", token);
             queryWall.addQueryItem("owner_id", "-" + currentGroup);
-            queryWall.addQueryItem("count", "5");
+            queryWall.addQueryItem("offset", "1");
+            queryWall.addQueryItem("count", "2");
             currentWall.setQuery(queryWall);
             QByteArray answerWall = GET(currentWall);
             QVariantList wallList = parse(answerWall).toMap().value("response").toList();
