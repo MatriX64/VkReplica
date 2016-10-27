@@ -6,7 +6,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    ui->WEB->load(QUrl("https://oauth.vk.com/authorize?client_id=5683779&scope=offline,messages,friends&redirect_uri=https://oauth.vk.com/blank.html&display=wap&response_type=token"));
+    ui->WEB->load(QUrl("https://oauth.vk.com/authorize?client_id=5683779&scope=offline,messages,friends,video&redirect_uri=https://oauth.vk.com/blank.html&display=wap&response_type=token"));
 
     connect(ui->WEB, SIGNAL(urlChanged(QUrl)), this, SLOT(url_changed(QUrl)));
     connect(this, SIGNAL(auth_success()), this, SLOT(connect_to_longpoll()));
@@ -221,9 +221,16 @@ QUrl MainWindow::parse_message()
 {
     QString id = users.value(ui->LIST->currentText());
 
-    QRegularExpression exp("meme \\d");
+    QRegularExpression expMeme("meme \\d");
+    QRegularExpression expPron("pron \\d");
 
-    if (receivedMessage.contains(exp))
+    if (!(receivedMessage.contains(expMeme) || receivedMessage.contains(expPron)))
+    {
+        QUrl current("access_denied");
+        return current;
+    }
+
+    if (receivedMessage.contains(expMeme))
     {
         QStringList requestString;
         requestString = receivedMessage.split(" ");
@@ -235,27 +242,27 @@ QUrl MainWindow::parse_message()
             return current;
         }
 
-
-        QUrl current("https://api.vk.com/method/messages.send");
-        QUrlQuery query;
+        QUrl helloMessage("https://api.vk.com/method/messages.send");
+        QUrlQuery queryHello;
         if (id.isEmpty())
         {
-            query.addQueryItem("user_id", receiverId);
+            queryHello.addQueryItem("user_id", receiverId);
         } else if (id == receiverId)
         {
-            query.addQueryItem("user_id", id);
+            queryHello.addQueryItem("user_id", id);
         } else
         {
             QUrl current("access_denied");
             return current;
         }
-        query.addQueryItem("message", "Подождите. Запрос обрабатывается...");
-        query.addQueryItem("access_token", token);
-        current.setQuery(query);
-        QByteArray answer = GET(current);
-        query.clear();
+        queryHello.addQueryItem("message", "Подождите. Запрос обрабатывается...");
+        queryHello.addQueryItem("access_token", token);
+        helloMessage.setQuery(queryHello);
+        QByteArray answerHello = GET(helloMessage);
 
-        current = "https://api.vk.com/method/groups.get";
+
+        QUrl current("https://api.vk.com/method/groups.get");
+        QUrlQuery query;
         if (id.isEmpty())
         {
             query.addQueryItem("user_id", receiverId);
@@ -270,7 +277,7 @@ QUrl MainWindow::parse_message()
         query.addQueryItem("count", groupsNumber);
         query.addQueryItem("access_token", token);
         current.setQuery(query);
-        answer = GET(current);
+        QByteArray answer = GET(current);
 
         //{\"response\":[3,69319700,30315369]}
         QVariantList list = parse(answer).toMap().value("response").toList();
@@ -331,6 +338,71 @@ QUrl MainWindow::parse_message()
         resultQuery.addQueryItem("message", "Ваши мемесы, сир");
         resultUrl.setQuery(resultQuery);
         return resultUrl;
+    } else if (receivedMessage.contains(expPron))
+    {
+        QStringList requestString;
+        requestString = receivedMessage.split(" ");
+        QString videoTimer = requestString.at(1);
+
+        if ((videoTimer.toInt() < 1) || (videoTimer.toInt() > 1000))
+        {
+            QUrl current("access_denied");
+            return current;
+        }
+        QUrl helloMessage("https://api.vk.com/method/messages.send");
+        QUrlQuery queryHello;
+        if (id.isEmpty())
+        {
+            queryHello.addQueryItem("user_id", receiverId);
+        } else if (id == receiverId)
+        {
+            queryHello.addQueryItem("user_id", id);
+        } else
+        {
+            QUrl current("access_denied");
+            return current;
+        }
+        queryHello.addQueryItem("message", "Подождите. Запрос обрабатывается...");
+        queryHello.addQueryItem("access_token", token);
+        helloMessage.setQuery(queryHello);
+        QByteArray answerHello = GET(helloMessage);
+
+        QString secondsHighTimer = QString::number((videoTimer.toInt()*60));
+
+        int randOffset = qrand() % 300;
+        QUrl currentVideo("https://api.vk.com/method/video.search");
+        QUrlQuery queryVideo;
+        queryVideo.addQueryItem("q", "porn");
+        queryVideo.addQueryItem("adult", "1");
+        queryVideo.addQueryItem("access_token", token);
+        queryVideo.addQueryItem("offset", QString::number(randOffset));
+        queryVideo.addQueryItem("shorter", secondsHighTimer);
+        queryVideo.addQueryItem("count", "1");
+        currentVideo.setQuery(queryVideo);
+        QByteArray answerVideo = GET(currentVideo);
+        QString videoId = parse(answerVideo).toMap().value("response").toList().at(0).toMap().value("id").toString();
+        QString videoOwnerId = parse(answerVideo).toMap().value("response").toList().at(0).toMap().value("owner_id").toString();
+
+        QUrl resultUrl("https://api.vk.com/method/messages.send");
+        QString attachment("video" + videoOwnerId + "_" + videoId);
+        QUrlQuery resultQuery;
+        if (id.isEmpty())
+        {
+            resultQuery.addQueryItem("user_id", receiverId);
+        } else if (id == receiverId)
+        {
+            resultQuery.addQueryItem("user_id", id);
+        } else
+        {
+            QUrl current("access_denied");
+            return current;
+        }
+        resultQuery.addQueryItem("access_token", token);
+        resultQuery.addQueryItem("attachment", attachment);
+        resultQuery.addQueryItem("message", "Ваш прон, сир");
+        resultUrl.setQuery(resultQuery);
+        return resultUrl;
+
     } else
     {
         QUrl current("access_denied");
