@@ -218,9 +218,23 @@ QUrl MainWindow::moon()
 QUrl MainWindow::parse_message()
 {
     QString id = users.value(ui->LIST->currentText());
-    if (receivedMessage == "memeses")
+
+    QRegularExpression exp("meme \\d");
+
+    if (receivedMessage.contains(exp))
     {
-        QUrl current("https://api.vk.com/method/groups.get");
+        QStringList requestString;
+        requestString = receivedMessage.split(" ");
+        QString groupsNumber = requestString.at(1);
+
+        if ((groupsNumber.toInt() < 1) || (groupsNumber.toInt() >= 1000))
+        {
+            QUrl current("access_denied");
+            return current;
+        }
+
+
+        QUrl current("https://api.vk.com/method/messages.send");
         QUrlQuery query;
         if (id.isEmpty())
         {
@@ -230,17 +244,90 @@ QUrl MainWindow::parse_message()
             query.addQueryItem("user_id", id);
         } else
         {
-            current = "access_denied";
+            QUrl current("access_denied");
             return current;
         }
-        query.addQueryItem("count", "2");
+        query.addQueryItem("message", "Подождите. Запрос обрабатывается...");
         query.addQueryItem("access_token", token);
         current.setQuery(query);
-
         QByteArray answer = GET(current);
-        qDebug() << answer;
-        current = "access_denied";
-        return current;
+        query.clear();
+
+        current = "https://api.vk.com/method/groups.get";
+        if (id.isEmpty())
+        {
+            query.addQueryItem("user_id", receiverId);
+        } else if (id == receiverId)
+        {
+            query.addQueryItem("user_id", id);
+        } else
+        {
+            QUrl current("access_denied");
+            return current;
+        }
+        query.addQueryItem("count", groupsNumber);
+        query.addQueryItem("access_token", token);
+        current.setQuery(query);
+        answer = GET(current);
+
+        //{\"response\":[3,69319700,30315369]}
+        QVariantList list = parse(answer).toMap().value("response").toList();
+        QStringList wallsToSend;
+        QStringList groupList;
+        for (int i = 1; i < list.size(); i++)
+        {
+            QString currentGroup = list.at(i).toString();
+            QUrl currentWall("https://api.vk.com/method/wall.get");
+            QUrlQuery queryWall;
+            queryWall.addQueryItem("access_token", token);
+            queryWall.addQueryItem("owner_id", "-" + currentGroup);
+            queryWall.addQueryItem("count", "5");
+            currentWall.setQuery(queryWall);
+            QByteArray answerWall = GET(currentWall);
+            QVariantList wallList = parse(answerWall).toMap().value("response").toList();
+            int likesComparator  = 0;
+            QString resultId;
+            for (int j = 1; j < wallList.size(); j++)
+            {
+                QString postId = wallList[j].toMap().value("id").toString();
+                int postLikes = wallList[j].toMap().value("likes").toMap().value("count").toInt();
+                if (postLikes >= likesComparator)
+                {
+                    likesComparator = postLikes;
+                    resultId = postId;
+                }
+            }
+            //qDebug() << likesComparator << ": " << resultId;
+            groupList << currentGroup;
+            wallsToSend << resultId;
+        }
+        QUrl resultUrl("https://api.vk.com/method/messages.send");
+        QString attachment;
+        for (int i = 0; i < groupList.size(); i++)
+        {
+            attachment.append("wall-" + groupList.at(i) + "_" + wallsToSend.at(i));
+            if (groupList.at(i) == groupList.last())
+                break;
+            attachment.append(",");
+        }
+        //qDebug() << attachment;
+        QUrlQuery resultQuery;
+        if (id.isEmpty())
+        {
+            resultQuery.addQueryItem("user_id", receiverId);
+        } else if (id == receiverId)
+        {
+            resultQuery.addQueryItem("user_id", id);
+        } else
+        {
+            QUrl current("access_denied");
+            return current;
+        }
+        resultQuery.addQueryItem("access_token", token);
+        resultQuery.addQueryItem("attachment", attachment);
+        resultQuery.addQueryItem("message", "Ваши мемесы, сир");
+        resultUrl.setQuery(resultQuery);
+        return resultUrl;
     } else
     {
         QUrl current("access_denied");

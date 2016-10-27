@@ -14,6 +14,7 @@
 #include "json.h"
 #include <QMap>
 #include <QMessageBox>
+#include <QRegularExpression>
 
 typedef QMap<QString,QString> User;
 
@@ -59,7 +60,6 @@ private:
     QString receivedMessage;
     QString messageToReceive;
     User users;
-    QStringList groups;
     QByteArray GET(QUrl);
     void send_message();
     void vait_for_receive();
