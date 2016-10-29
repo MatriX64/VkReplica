@@ -13,9 +13,9 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    json.cpp
+    vklongpollserver.cpp
 
 HEADERS  += mainwindow.h \
-    json.h
+    vklongpollserver.h
 
 FORMS    += mainwindow.ui
